@@ -1,0 +1,59 @@
+import pandas as pd
+import matplotlib.pyplot as plt
+import nltk
+nltk.download('stopwords')
+from nltk.corpus import stopwords
+
+from wordcloud import WordCloud
+from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.linear_model import LogisticRegression
+from sklearn.model_selection import train_test_split
+from sklearn.metrics import confusion_matrix, ConfusionMatrixDisplay
+import pickle as pk
+#import streamlit as st
+
+data = pd.read_csv('Movie_Review.csv')
+#data['sentiment'].value_counts()
+
+data.dropna(inplace=True)
+
+def clean_review(review):
+    str = ' '.join(word for word in review.split() if word.lower() not in stopwords.words('english'))
+    return str
+
+data['text'] = data['text'].apply(clean_review)
+
+reviews = ' '.join(word for word in data['text'][data['sentiment']== 'neg'].astype(str))
+wordcloud = WordCloud(height = 600, width = 1000,max_font_size = 100)
+
+plt.figure(figsize = (15,12))
+plt.imshow(wordcloud.generate(reviews), interpolation = 'bilinear')
+plt.axis('off')
+plt.show()
+
+reviews = ' '.join(word for word in data['text'][data['sentiment']== 'pos'].astype(str))
+wordcloud = WordCloud(height = 600, width = 1000,max_font_size = 100)
+
+plt.figure(figsize = (15,12))
+plt.imshow(wordcloud.generate(reviews), interpolation = 'bilinear')
+plt.axis('off')
+plt.show()
+
+cv = TfidfVectorizer(max_features = 2500)
+reviews = cv.fit_transform(data['text']).toarray()
+data['sentiment'] = data['sentiment'].replace(['pos', 'neg'], [1,0])
+data['sentiment'].value_counts()
+
+model = LogisticRegression()
+
+reviews_train, reviews_test, sentiment_train, sentiment_test = train_test_split(reviews, data['sentiment'], test_size=0.2)
+model.fit(reviews_train, sentiment_train)
+predict = model.predict(reviews_test)
+
+cm = confusion_matrix(sentiment_test, predict, labels=model.classes_)
+display = ConfusionMatrixDisplay(confusion_matrix = cm, display_labels=model.classes_)
+display.plot()
+plt.show()
+
+pk.dump(model, open('model.pkl', 'wb'))
+pk.dump(cv, open('scaler.pkl', 'wb'))
